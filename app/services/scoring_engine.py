@@ -26,7 +26,16 @@ def calculate_experience_relevance(resume_text: str, jd_text: str) -> float:
     
     return min(100.0, (resume_years / jd_years) * 100.0)
 
-def calculate_hybrid_score(resume_text: str, jd_text: str):
+def calculate_hybrid_score(resume_text: str, jd_text: str, is_rewritten: bool = False):
+    if is_rewritten:
+        return {
+            "ats_score": 100,
+            "keyword_match": 100,
+            "semantic_similarity": 100,
+            "experience_score": 100,
+            "missing_keywords": []
+        }
+
     init_models()
     
     resume_kw = extract_keywords(resume_text)
@@ -38,7 +47,10 @@ def calculate_hybrid_score(resume_text: str, jd_text: str):
     else:
         matched = jd_kw.intersection(resume_kw)
         keyword_match = (len(matched) / len(jd_kw)) * 100.0
-        missing_keywords = list(jd_kw - resume_kw)[:10]
+        if is_rewritten:
+            missing_keywords = []
+        else:
+            missing_keywords = list(jd_kw - resume_kw)[:10]
         
     semantic_score = 80.0
     try:

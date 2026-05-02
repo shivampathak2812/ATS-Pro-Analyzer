@@ -1,11 +1,193 @@
 const API_BASE = "http://127.0.0.1:8000/api";
 let currentAnalysisData = null;
+let initialMissingKeywordsCount = 0;
+let isLoginMode = true;
+
+// --- Auth Flow ---
+window.onload = () => {
+    const token = localStorage.getItem('token');
+    const headerBtns = document.getElementById('headerAuthButtons');
+    if (token) {
+        headerBtns.innerHTML = `<button onclick="logout()" class="secondary-btn" style="padding: 8px 16px; font-size: 0.85rem;">Logout</button>`;
+    } else {
+        headerBtns.innerHTML = `<button onclick="openAuthModal()" class="primary-btn" style="padding: 8px 16px; font-size: 0.85rem;">Sign In / Register</button>`;
+    }
+};
+
+window.openAuthModal = () => {
+    document.getElementById('authScreen').classList.remove('hidden');
+};
+
+window.closeAuthModal = () => {
+    document.getElementById('authScreen').classList.add('hidden');
+};
+
+window.toggleAuthMode = () => {
+    isLoginMode = !isLoginMode;
+    document.getElementById('authTitle').innerText = isLoginMode ? "Sign In to ATS Pro" : "Register for ATS Pro";
+    document.getElementById('authSubmitBtn').innerText = isLoginMode ? "Sign In" : "Register";
+    document.getElementById('authToggleText').innerText = isLoginMode ? "Don't have an account?" : "Already have an account?";
+    document.getElementById('authToggleLink').innerText = isLoginMode ? "Register" : "Sign In";
+    document.getElementById('authOtp').classList.add('hidden');
+    document.getElementById('authOtp').required = false;
+    document.getElementById('authMessage').innerText = "";
+};
+
+window.handleAuthSubmit = async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('authEmail').value;
+    const password = document.getElementById('authPassword').value;
+    const otp = document.getElementById('authOtp').value;
+    const msgEl = document.getElementById('authMessage');
+    
+    msgEl.className = 'auth-message';
+    msgEl.innerText = "Loading...";
+
+    try {
+        if (!isLoginMode && !otp) {
+            // Step 1: Register
+            const res = await fetch(`${API_BASE}/auth/register`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({email, password})
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "Registration failed");
+            
+            msgEl.innerText = "Check your email for the OTP!";
+            document.getElementById('authOtp').classList.remove('hidden');
+            document.getElementById('authOtp').required = true;
+            document.getElementById('authSubmitBtn').innerText = "Verify OTP & Login";
+        } else if (!isLoginMode && otp) {
+            // Step 2: Verify OTP
+            const res = await fetch(`${API_BASE}/auth/verify-otp`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({email, otp})
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "OTP Verification failed");
+            
+            localStorage.setItem('token', data.access_token);
+            window.location.reload();
+        } else {
+            // Login
+            const formData = new URLSearchParams();
+            formData.append('username', email);
+            formData.append('password', password);
+            
+            const res = await fetch(`${API_BASE}/auth/login`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: formData
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "Login failed");
+            
+            localStorage.setItem('token', data.access_token);
+            window.location.reload();
+        }
+    } catch (err) {
+        msgEl.className = 'auth-message error';
+        msgEl.innerText = err.message;
+    }
+};
+
+window.logout = () => {
+    localStorage.removeItem('token');
+    window.location.reload();
+};
+
+async function apiFetch(url, options = {}) {
+    const token = localStorage.getItem('token');
+    if (!options.headers) options.headers = {};
+    
+    // Don't overwrite FormData headers
+    if (!(options.body instanceof FormData)) {
+        if (!options.headers['Content-Type']) {
+            options.headers['Content-Type'] = 'application/json';
+        }
+    }
+    
+    if (token) {
+        options.headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(url, options);
+    if (response.status === 401) {
+        logout();
+    }
+    return response;
+}
+// --- End Auth Flow ---
+
+function cleanExtractedText(text) {
+    // Fix merged words by adding space before capital letters
+    text = text.replace(/([a-z])([A-Z])/g, '$1 $2');
+    // Fix multiple spaces
+    text = text.replace(/\s+/g, ' ');
+    // Fix missing space after punctuation
+    text = text.replace(/([.,;:])([a-zA-Z])/g, '$1 $2');
+    // Fix numbers merged with words
+    text = text.replace(/([a-zA-Z])(\d)/g, '$1 $2');
+    text = text.replace(/(\d)([a-zA-Z])/g, '$1 $2');
+    return text.trim();
+}
 
 document.getElementById('resumeFile').addEventListener('change', (e) => handleFileUpload(e, 'resumeText', 'upload-resume'));
 document.getElementById('jdFile').addEventListener('change', (e) => handleFileUpload(e, 'jdText', 'upload-jd'));
 document.getElementById('analyzeBtn').addEventListener('click', () => analyzeDocuments(true, false));
 document.getElementById('atsScoreBtn').addEventListener('click', () => analyzeDocuments(false, false));
 document.getElementById('generatePerfectBtn').addEventListener('click', () => analyzeDocuments(true, true));
+
+document.getElementById('reanalyzeBtn').addEventListener('click', async () => {
+    if (!currentAnalysisData || !currentAnalysisData.full_rewritten_resume) return;
+    
+    // We keep the button visible based on user request.
+    const rewrittenText = currentAnalysisData.full_rewritten_resume;
+    let jdText = document.getElementById('jdText').value;
+    jdText = cleanExtractedText(jdText);
+    
+    const loader = document.getElementById('loader');
+    loader.classList.remove('hidden');
+    
+    try {
+        const resume_id = await getDocumentId(rewrittenText);
+        const jd_id = jdText ? await getDocumentId(jdText) : null;
+        
+        const payload = { resume_id: resume_id };
+        if (jd_id) payload.jd_id = jd_id;
+        
+        const response = await apiFetch(`${API_BASE}/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        displayResults(data, !!jd_id, false, true);
+        
+        const msgContainer = document.getElementById('reanalyzeMessageContainer');
+        if (msgContainer) {
+            msgContainer.innerHTML = `🔥 JD Match Score is now 100%! 🔥<br>Previously there were ${initialMissingKeywordsCount} missing keywords, and now there are 0! Your ATS match is absolutely perfect!`;
+            msgContainer.classList.remove('hidden');
+        }
+    } catch (error) {
+        alert("Error during re-analysis: " + error.message);
+    } finally {
+        loader.classList.add('hidden');
+    }
+});
+
+document.getElementById('toggleGranularBtn').addEventListener('click', (e) => {
+    const granularSections = document.getElementById('granularSections');
+    if (granularSections.classList.contains('hidden')) {
+        granularSections.classList.remove('hidden');
+        e.target.textContent = "- Hide Individual Rewritten Sections";
+    } else {
+        granularSections.classList.add('hidden');
+        e.target.textContent = "+ View Individual Rewritten Sections (Summary, Skills, etc.)";
+    }
+});
 
 document.querySelectorAll('.copy-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -23,13 +205,18 @@ async function handleFileUpload(event, targetTextareaId, endpoint) {
     if (!file) return;
 
     const textarea = document.getElementById(targetTextareaId);
-    textarea.value = "Extracting text... Please wait.";
+    const filenameDisplay = document.getElementById(targetTextareaId.replace('Text', 'FileName'));
+    
+    if (filenameDisplay) {
+        filenameDisplay.textContent = "Extracting text... ⏳";
+        filenameDisplay.style.color = "#a1a1aa";
+    }
 
     const formData = new FormData();
     formData.append("file", file);
 
     try {
-        const response = await fetch(`${API_BASE}/${endpoint}`, {
+        const response = await apiFetch(`${API_BASE}/${endpoint}`, {
             method: 'POST',
             body: formData
         });
@@ -37,14 +224,22 @@ async function handleFileUpload(event, targetTextareaId, endpoint) {
         if (!response.ok) throw new Error("Upload failed");
 
         const data = await response.json();
-        textarea.value = data.text;
+        textarea.value = cleanExtractedText(data.text);
         
         if (data.resume_id) textarea.dataset.id = data.resume_id;
         if (data.jd_id) textarea.dataset.id = data.jd_id;
 
+        if (filenameDisplay) {
+            filenameDisplay.textContent = `✅ ${file.name} uploaded successfully!`;
+            filenameDisplay.style.color = "var(--success)";
+        }
+
     } catch (error) {
         console.error(error);
-        textarea.value = "Error extracting text. Please try again or paste manually.";
+        if (filenameDisplay) {
+            filenameDisplay.textContent = "❌ Error reading file. Please paste manually.";
+            filenameDisplay.style.color = "var(--danger)";
+        }
     }
     
     event.target.value = "";
@@ -54,7 +249,7 @@ async function getDocumentId(text) {
     if (!text.trim()) return null;
 
     try {
-        const response = await fetch(`${API_BASE}/save-document`, {
+        const response = await apiFetch(`${API_BASE}/save-document`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: text })
@@ -68,8 +263,11 @@ async function getDocumentId(text) {
 }
 
 async function analyzeDocuments(includeJd = true, forcePerfectScore = false) {
-    const resumeText = document.getElementById('resumeText').value;
+    let resumeText = document.getElementById('resumeText').value;
     let jdText = document.getElementById('jdText').value;
+
+    resumeText = cleanExtractedText(resumeText);
+    jdText = cleanExtractedText(jdText);
 
     if (!includeJd) {
         jdText = ""; // Ignore the JD box if they specifically clicked the 'Resume Only' button
@@ -85,12 +283,14 @@ async function analyzeDocuments(includeJd = true, forcePerfectScore = false) {
     const btn3 = document.getElementById('generatePerfectBtn');
     const loader = document.getElementById('loader');
     const results = document.getElementById('resultsSection');
+    const msgContainer = document.getElementById('reanalyzeMessageContainer');
 
     btn1.disabled = true;
     btn2.disabled = true;
     if (btn3) btn3.disabled = true;
     loader.classList.remove('hidden');
     results.classList.add('hidden');
+    if (msgContainer) msgContainer.classList.add('hidden');
 
     try {
         const resume_id = await getDocumentId(resumeText);
@@ -101,7 +301,7 @@ async function analyzeDocuments(includeJd = true, forcePerfectScore = false) {
         const payload = { resume_id: resume_id };
         if (jd_id) payload.jd_id = jd_id;
 
-        const response = await fetch(`${API_BASE}/analyze`, {
+        const response = await apiFetch(`${API_BASE}/analyze`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -125,7 +325,7 @@ async function analyzeDocuments(includeJd = true, forcePerfectScore = false) {
     }
 }
 
-function displayResults(data, hasJd = true, forcePerfectScore = false) {
+function displayResults(data, hasJd = true, forcePerfectScore = false, isReanalyze = false) {
     document.getElementById('resultsSection').classList.remove('hidden');
 
     // JD Match Score
@@ -200,6 +400,12 @@ function displayResults(data, hasJd = true, forcePerfectScore = false) {
         container.innerHTML = '';
         const keywordsToShow = forcePerfectScore ? [] : (data.missing_keywords || []);
         
+        if (!isReanalyze && data.missing_keywords && data.missing_keywords.length >= 0) {
+            // Always save the original missing keywords count from the backend analysis
+            // unless it's a re-analyze call where the backend forces it to 0.
+            initialMissingKeywordsCount = data.missing_keywords.length;
+        }
+        
         if (keywordsToShow.length === 0) {
             container.innerHTML = '<div style="color: var(--success); grid-column: 1/-1; text-align: center;">All JD Keywords are present in the rewritten resume!</div>';
         } else {
@@ -207,12 +413,22 @@ function displayResults(data, hasJd = true, forcePerfectScore = false) {
         }
     }
 
-    const suggestionsCards = document.querySelectorAll('.suggestions-card');
-    if (!forcePerfectScore) {
+    const suggestionsCards = document.querySelectorAll('.suggestions-card:not(#fullResumeCard)');
+    const toggleBtn = document.getElementById('toggleGranularBtn');
+    
+    if (!forcePerfectScore && !isReanalyze) {
         // Hide all generation panels for basic analysis
         suggestionsCards.forEach(card => card.classList.add('hidden'));
+        document.getElementById('fullResumeCard').classList.add('hidden');
+        document.getElementById('reanalyzeBtn').style.display = 'none';
+        if (toggleBtn) toggleBtn.classList.add('hidden');
     } else {
-        suggestionsCards.forEach(card => card.classList.remove('hidden'));
+        // For Perfect Score, show full resume but hide granular sections behind toggle
+        if (toggleBtn) {
+            toggleBtn.classList.remove('hidden');
+            toggleBtn.textContent = "+ View Individual Rewritten Sections (Summary, Skills, etc.)";
+        }
+        document.getElementById('granularSections').classList.add('hidden');
         
         const improvementsList = document.getElementById('improvementsList');
         if (improvementsList && data.improvement_suggestions) {
@@ -237,55 +453,52 @@ function displayResults(data, hasJd = true, forcePerfectScore = false) {
         if (data.full_rewritten_resume) {
             document.getElementById('fullResumeCard').classList.remove('hidden');
             document.getElementById('fullResumePanel').textContent = data.full_rewritten_resume;
+            document.getElementById('reanalyzeBtn').style.display = 'block';
+            const templateSelector = document.getElementById('templateSelectorSection');
+            if (templateSelector) templateSelector.classList.remove('hidden');
         } else {
             document.getElementById('fullResumeCard').classList.add('hidden');
+            document.getElementById('reanalyzeBtn').style.display = 'none';
+            const templateSelector = document.getElementById('templateSelectorSection');
+            if (templateSelector) templateSelector.classList.add('hidden');
         }
     }
     
 
     currentAnalysisData = data;
-    document.getElementById('downloadWordBtn').classList.remove('hidden');
-    document.getElementById('downloadPdfBtn').classList.remove('hidden');
     document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
 }
 
-async function downloadDocument(format) {
-    if (!currentAnalysisData) return;
-    
-    const btnId = format === 'pdf' ? 'downloadPdfBtn' : 'downloadWordBtn';
-    const btn = document.getElementById(btnId);
-    const originalText = btn.querySelector('span').textContent;
-    btn.disabled = true;
-    btn.querySelector('span').textContent = "Generating...";
+let selectedTemplate = 'modern';
 
-    try {
-        const response = await fetch(`${API_BASE}/download-resume`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                full_rewritten_resume: currentAnalysisData.full_rewritten_resume || "Error generating document.",
-                format: format
-            })
-        });
-        
-        if (!response.ok) throw new Error("Download failed");
-        
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `ATS_Optimized_Resume.${format}`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-    } catch (e) {
-        alert("Failed to download resume: " + e.message);
-    } finally {
-        btn.disabled = false;
-        btn.querySelector('span').textContent = originalText;
-    }
+window.selectTemplate = function(name) {
+    selectedTemplate = name;
+    document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('tmpl-' + name).classList.add('selected');
+    downloadResumePdf(name);
 }
 
-document.getElementById('downloadWordBtn').addEventListener('click', () => downloadDocument('docx'));
-document.getElementById('downloadPdfBtn').addEventListener('click', () => downloadDocument('pdf'));
+window.downloadResumePdf = async function(template) {
+    const resumeText = document.getElementById('fullResumePanel').innerText;
+    if (!resumeText.trim()) {
+        alert('Please generate resume first!');
+        return;
+    }
+    try {
+        const response = await apiFetch(`${API_BASE}/download-resume`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ resume_text: resumeText, template: template })
+        });
+        if (!response.ok) throw new Error('Download failed');
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `resume_${template}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        alert('Error downloading PDF. Please try again.');
+    }
+}

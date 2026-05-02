@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,31 +8,72 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=2">
 </head>
+
 <body>
     <div class="background-elements">
         <div class="blob blob-1"></div>
         <div class="blob blob-2"></div>
     </div>
+    <div id="authScreen" class="auth-container hidden" style="background: rgba(0,0,0,0.8); backdrop-filter: blur(5px);">
+        <div class="auth-card" style="position: relative;">
+            <button onclick="closeAuthModal()"
+                style="position: absolute; top: 15px; right: 15px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem;">&times;</button>
+            <h2 id="authTitle">Sign In to ATS Pro</h2>
+            <p id="authSubtitle">Optimize your resume for the modern ATS</p>
 
-    <main class="app-container">
+            <form id="authForm" onsubmit="handleAuthSubmit(event)">
+                <input type="email" id="authEmail" class="auth-input" placeholder="Email Address" required>
+                <input type="password" id="authPassword" class="auth-input" placeholder="Password" required>
+                <input type="text" id="authOtp" class="auth-input hidden" placeholder="Enter 6-digit OTP"
+                    pattern="\d{6}">
+                <button type="submit" id="authSubmitBtn" class="primary-btn"
+                    style="width: 100%; margin-top: 10px; justify-content: center;">Sign In</button>
+            </form>
+
+            <p class="auth-switch">
+                <span id="authToggleText">Don't have an account?</span>
+                <a href="#" id="authToggleLink" onclick="toggleAuthMode()">Register</a>
+            </p>
+            <div id="authMessage" class="auth-message"></div>
+        </div>
+    </div>
+
+    <main id="appScreen" class="app-container">
         <header class="app-header">
-            <div class="logo">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                <h1>ATS Pro <span>Analyzer</span></h1>
+            <div style="position: absolute; top: 20px; right: 20px;" id="headerAuthButtons">
+                <!-- Dynamically populated by JS -->
             </div>
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+                <span style="font-size: 0.85rem; font-weight: 500; letter-spacing: 0.02em;">ATS PRO ANALYSER</span>
+            </div>
+            <h1>Optimize your resume<br><span
+                    style="color: var(--text-muted); background: none; -webkit-text-fill-color: var(--text-muted);">for
+                    the modern ATS</span></h1>
             <p>Upload your resume and job description to get instant keyword matching and AI-powered suggestions.</p>
         </header>
 
         <section class="upload-section">
             <div class="card">
-                <div class="card-header">
+                <div class="card-header" style="justify-content: center;">
                     <h2>Your Resume</h2>
-                    <label class="upload-btn">
-                        <span>Upload File</span>
-                        <input type="file" id="resumeFile" accept=".pdf,.docx,.txt" hidden>
-                    </label>
                 </div>
-                <textarea id="resumeText" placeholder="Upload your resume or paste the text here..."></textarea>
+                <div class="upload-dropzone" onclick="document.getElementById('resumeFile').click()">
+                    <div style="font-size: 2.5rem; margin-bottom: 10px;">📄</div>
+                    <p style="color: #a1a1aa; font-size: 1.1rem; margin: 0;">Click to Upload Resume</p>
+                    <p style="color: #52525b; font-size: 0.85rem; margin-top: 5px;">Supports .pdf, .docx, .txt</p>
+                    <p id="resumeFileName"
+                        style="color: var(--success); font-weight: bold; margin-top: 15px; font-size: 1rem;"></p>
+                    <input type="file" id="resumeFile" accept=".pdf,.docx,.txt" hidden>
+                </div>
+                <textarea id="resumeText" hidden></textarea>
             </div>
 
             <div class="card">
@@ -51,10 +93,16 @@
                 <button id="analyzeBtn" class="primary-btn">1. Analyze JD Match &rarr;</button>
                 <button id="atsScoreBtn" class="secondary-btn">2. Calculate ATS Score (Resume Only) &oplus;</button>
             </div>
-            <div class="action-section" style="margin-top: 1rem;">
-                <button id="generatePerfectBtn" class="primary-btn" style="background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); width: 100%;">
+            <div class="action-section" style="margin-top: 1rem; width: 100%;">
+                <button id="generatePerfectBtn" class="primary-btn" style="width: 100%; justify-content: center;">
                     3. Generate 100% Matched Resume
                 </button>
+                <button id="reanalyzeBtn" class="secondary-btn" style="display:none; width: 100%; margin-top: 1rem;">
+                    🔄 Re-Analyze Optimized Resume
+                </button>
+                <div id="reanalyzeMessageContainer" class="hidden"
+                    style="margin-top: 1rem; padding: 15px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; text-align: center; color: var(--text-main); font-size: 0.95rem;">
+                </div>
             </div>
             <div id="loader" class="loader hidden">
                 <div class="spinner"></div>
@@ -70,8 +118,10 @@
                             <h3>JD Match Score</h3>
                             <div class="score-circle">
                                 <svg viewBox="0 0 36 36" class="circular-chart">
-                                    <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                    <path class="circle" id="scorePath" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                    <path class="circle-bg"
+                                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                    <path class="circle" id="scorePath" stroke-dasharray="0, 100"
+                                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                                     <text x="18" y="20.35" class="percentage" id="scoreText">0%</text>
                                 </svg>
                             </div>
@@ -80,35 +130,45 @@
                             <h3>Resume ATS Score</h3>
                             <div class="score-circle">
                                 <svg viewBox="0 0 36 36" class="circular-chart">
-                                    <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                    <path class="circle" id="atsScorePath" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                    <path class="circle-bg"
+                                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                    <path class="circle" id="atsScorePath" stroke-dasharray="0, 100"
+                                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                                     <text x="18" y="20.35" class="percentage" id="atsScoreText">0%</text>
                                 </svg>
                             </div>
                         </div>
                     </div>
                     <div class="verdict" id="verdictText" style="margin-top: 1rem;">Evaluating...</div>
-                    <div id="projectedScoreContainer" class="hidden" style="margin-top: 1rem; text-align: center; color: var(--success); font-weight: 600; font-size: 1.1rem; padding: 10px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; width: 100%;">
+                    <div id="projectedScoreContainer" class="hidden"
+                        style="margin-top: 1rem; text-align: center; color: var(--success); font-weight: 600; font-size: 1.1rem; padding: 10px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; width: 100%;">
                         Projected Score after Download: <span id="projectedScoreValue"></span>%
                     </div>
                 </div>
 
                 <div class="details-card" id="jdMetricsCard">
-                    <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
-                        <div class="metric-box" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; text-align: center;">
+                    <div class="metrics-grid"
+                        style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
+                        <div class="metric-box"
+                            style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; text-align: center;">
                             <div style="font-size: 0.9rem; color: #a1a1aa;">Keyword Match</div>
-                            <div id="keywordScore" style="font-size: 1.5rem; font-weight: bold; color: var(--accent-color);">0%</div>
+                            <div id="keywordScore"
+                                style="font-size: 1.5rem; font-weight: bold; color: var(--accent-color);">0%</div>
                         </div>
-                        <div class="metric-box" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; text-align: center;">
+                        <div class="metric-box"
+                            style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; text-align: center;">
                             <div style="font-size: 0.9rem; color: #a1a1aa;">Semantic Match</div>
-                            <div id="semanticScore" style="font-size: 1.5rem; font-weight: bold; color: var(--accent-color);">0%</div>
+                            <div id="semanticScore"
+                                style="font-size: 1.5rem; font-weight: bold; color: var(--accent-color);">0%</div>
                         </div>
-                        <div class="metric-box" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; text-align: center;">
+                        <div class="metric-box"
+                            style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; text-align: center;">
                             <div style="font-size: 0.9rem; color: #a1a1aa;">Experience</div>
-                            <div id="experienceScore" style="font-size: 1.5rem; font-weight: bold; color: var(--accent-color);">0%</div>
+                            <div id="experienceScore"
+                                style="font-size: 1.5rem; font-weight: bold; color: var(--accent-color);">0%</div>
                         </div>
                     </div>
-                    
+
                     <h3>Missing Keywords</h3>
                     <div class="keywords-container" id="keywordsContainer">
                         <!-- Keywords populated here -->
@@ -119,29 +179,46 @@
 
             </div>
 
-            <div class="suggestions-card">
-                <h3>AI Rewritten Professional Summary <span class="gap-badge hidden" style="font-size: 0.75em; color: var(--success); font-weight: normal; margin-left: 10px; background: rgba(16, 185, 129, 0.1); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2);">✨ JD Gaps Filled</span></h3>
-                <div class="glass-panel" id="summaryPanel"></div>
-                <button class="copy-btn" data-target="summaryPanel">Copy Summary</button>
-            </div>
-
-            <div class="suggestions-card">
-                <h3>ATS-Optimized Skills Section <span class="gap-badge hidden" style="font-size: 0.75em; color: var(--success); font-weight: normal; margin-left: 10px; background: rgba(16, 185, 129, 0.1); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2);">✨ Missing Keywords Injected</span></h3>
-                <div class="glass-panel" id="skillsPanel"></div>
-                <button class="copy-btn" data-target="skillsPanel">Copy Skills</button>
-            </div>
-
-            <div class="suggestions-card" id="experienceCard">
-                <h3>ATS-Optimized Experience Section <span class="gap-badge hidden" style="font-size: 0.75em; color: var(--success); font-weight: normal; margin-left: 10px; background: rgba(16, 185, 129, 0.1); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2);">✨ Tailored to JD</span></h3>
-                <div class="glass-panel" id="experiencePanel"></div>
-                <button class="copy-btn" data-target="experiencePanel">Copy Experience</button>
-            </div>
-
             <div class="suggestions-card" id="fullResumeCard">
-                <h3>Your Completely Rewritten ATS Resume <span class="gap-badge hidden" style="font-size: 0.75em; color: var(--success); font-weight: normal; margin-left: 10px; background: rgba(16, 185, 129, 0.1); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2);">✨ 100% JD Matched</span></h3>
-                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">This is your entire resume, rewritten from top to bottom with all missing JD keywords naturally injected.</p>
-                <div class="glass-panel" id="fullResumePanel" style="max-height: 400px; overflow-y: auto; white-space: pre-wrap;"></div>
+                <h3>Your Completely Rewritten ATS Resume <span class="gap-badge hidden"
+                        style="font-size: 0.75em; color: var(--success); font-weight: normal; margin-left: 10px; background: rgba(16, 185, 129, 0.1); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2);">✨
+                        100% JD Matched</span></h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">This is your entire resume,
+                    rewritten from top to bottom with all missing JD keywords naturally injected.</p>
+                <div class="glass-panel" id="fullResumePanel"
+                    style="max-height: 400px; overflow-y: auto; white-space: pre-wrap;"></div>
                 <button class="copy-btn" data-target="fullResumePanel">Copy Entire Resume</button>
+            </div>
+
+            <button id="toggleGranularBtn" class="secondary-btn hidden"
+                style="margin: 20px auto; display: block; border: 1px solid var(--accent-color); color: var(--accent-color); background: transparent;">
+                + View Individual Rewritten Sections (Summary, Skills, etc.)
+            </button>
+
+            <div id="granularSections" class="hidden">
+                <div class="suggestions-card">
+                    <h3>AI Rewritten Professional Summary <span class="gap-badge hidden"
+                            style="font-size: 0.75em; color: var(--success); font-weight: normal; margin-left: 10px; background: rgba(16, 185, 129, 0.1); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2);">✨
+                            JD Gaps Filled</span></h3>
+                    <div class="glass-panel" id="summaryPanel"></div>
+                    <button class="copy-btn" data-target="summaryPanel">Copy Summary</button>
+                </div>
+
+                <div class="suggestions-card">
+                    <h3>ATS-Optimized Skills Section <span class="gap-badge hidden"
+                            style="font-size: 0.75em; color: var(--success); font-weight: normal; margin-left: 10px; background: rgba(16, 185, 129, 0.1); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2);">✨
+                            Missing Keywords Injected</span></h3>
+                    <div class="glass-panel" id="skillsPanel"></div>
+                    <button class="copy-btn" data-target="skillsPanel">Copy Skills</button>
+                </div>
+
+                <div class="suggestions-card" id="experienceCard">
+                    <h3>ATS-Optimized Experience Section <span class="gap-badge hidden"
+                            style="font-size: 0.75em; color: var(--success); font-weight: normal; margin-left: 10px; background: rgba(16, 185, 129, 0.1); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2);">✨
+                            Tailored to JD</span></h3>
+                    <div class="glass-panel" id="experiencePanel"></div>
+                    <button class="copy-btn" data-target="experiencePanel">Copy Experience</button>
+                </div>
             </div>
 
             <div class="suggestions-card warning-card">
@@ -151,15 +228,54 @@
                 </div>
             </div>
 
-            <div class="action-section" style="margin-top: 2rem; flex-direction: row; gap: 1rem; justify-content: center;">
-                <button id="downloadWordBtn" class="primary-btn hidden">
-                    <span>Download Word (DOCX)</span>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                </button>
-                <button id="downloadPdfBtn" class="secondary-btn hidden">
-                    <span>Download PDF</span>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                </button>
+            <div id="templateSelectorSection" class="hidden" style="width: 100%; margin: 2rem 0 1rem;">
+                <p
+                    style="text-align: center; font-size: 0.9rem; color: var(--text-muted); font-weight: 500; margin-bottom: 0.4rem;">
+                    Download Resume — Choose Template</p>
+                <p style="text-align: center; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1.2rem;">
+                    Click any template to download PDF instantly</p>
+                <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+
+                    <div class="template-card selected" onclick="selectTemplate('modern')" id="tmpl-modern">
+                        <span class="tmpl-badge">Recommended</span>
+                        <div class="tmpl-preview" style="background: #1a2332;">
+                            <div class="tmpl-bar" style="background: white; width: 65%;"></div>
+                            <div class="tmpl-bar" style="background: #60a5fa; width: 40%; height: 4px;"></div>
+                            <div class="tmpl-rule" style="background: rgba(255,255,255,0.2);"></div>
+                            <div class="tmpl-bar" style="background: rgba(255,255,255,0.3); width: 80%; height: 4px;">
+                            </div>
+                            <div class="tmpl-bar" style="background: rgba(255,255,255,0.3); width: 70%; height: 4px;">
+                            </div>
+                        </div>
+                        <p class="tmpl-name">Modern</p>
+                        <p class="tmpl-desc">Blue accents · Tech jobs</p>
+                    </div>
+
+                    <div class="template-card" onclick="selectTemplate('classic')" id="tmpl-classic">
+                        <div class="tmpl-preview" style="background: #ffffff; border: 0.5px solid #ddd;">
+                            <div class="tmpl-bar" style="background: #1a1a1a; width: 55%;"></div>
+                            <div class="tmpl-bar" style="background: #555; width: 35%; height: 4px;"></div>
+                            <div class="tmpl-rule" style="background: #1a1a1a;"></div>
+                            <div class="tmpl-bar" style="background: #777; width: 80%; height: 4px;"></div>
+                            <div class="tmpl-bar" style="background: #777; width: 68%; height: 4px;"></div>
+                        </div>
+                        <p class="tmpl-name">Classic</p>
+                        <p class="tmpl-desc">B&W · Corporate jobs</p>
+                    </div>
+
+                    <div class="template-card" onclick="selectTemplate('minimal')" id="tmpl-minimal">
+                        <div class="tmpl-preview" style="background: #fafafa; border: 0.5px solid #ddd;">
+                            <div class="tmpl-bar" style="background: #222; width: 50%;"></div>
+                            <div class="tmpl-bar" style="background: #999; width: 30%; height: 4px;"></div>
+                            <div class="tmpl-rule" style="background: #ddd;"></div>
+                            <div class="tmpl-bar" style="background: #bbb; width: 78%; height: 4px;"></div>
+                            <div class="tmpl-bar" style="background: #bbb; width: 65%; height: 4px;"></div>
+                        </div>
+                        <p class="tmpl-name">Minimal</p>
+                        <p class="tmpl-desc">Clean · Startup jobs</p>
+                    </div>
+
+                </div>
             </div>
         </section>
     </main>
@@ -167,4 +283,5 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="script.js?v=7"></script>
 </body>
+
 </html>

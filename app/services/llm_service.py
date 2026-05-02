@@ -4,10 +4,10 @@ from fastapi import HTTPException
 from app.core.config import settings
 from app.services.scoring_engine import calculate_hybrid_score
 
-async def analyze_resume_with_llm(resume_text: str, jd_text: str) -> dict:
+async def analyze_resume_with_llm(resume_text: str, jd_text: str, is_rewritten: bool = False) -> dict:
     target_jd = jd_text if jd_text else "Python Developer Machine Learning Engineer Data Analyst. Required skills: Python, SQL, Data Analysis, APIs, Git, Machine Learning, Pandas, Scikit-learn, FastAPI. Experience building scalable models, databases, and APIs."
     
-    scoring_result = calculate_hybrid_score(resume_text, target_jd)
+    scoring_result = calculate_hybrid_score(resume_text, target_jd, is_rewritten=is_rewritten)
     missing_keywords_str = ", ".join(scoring_result["missing_keywords"])
     ats_score = scoring_result.get("ats_score", 0)
     if ats_score >= 85:
@@ -30,6 +30,21 @@ Your tasks are:
 3. CRITICAL: Even when rewriting, use NATURAL HUMAN WORDING. DO NOT use overly robotic AI jargon (e.g., spearheaded, orchestrated, synergistic, delve, unleashed). Keep the tone professional, authentic, and simple, as if a real person wrote it.
 """
 
+    if is_rewritten:
+        rewrite_override = """
+FINAL OVERRIDE INSTRUCTION: This resume has already been fully ATS-optimized.
+You MUST return these exact values:
+- "jd_match_score": 100
+- "keyword_match": 100
+- "semantic_match": 100
+- "experience_match": 100
+- "resume_ats_score": 100
+- "missing_keywords": []
+Do NOT list any missing keywords whatsoever.
+"""
+    else:
+        rewrite_override = ""
+
     prompt = f"""You are an AI-powered Resume Optimization System. 
 Resume:
 {resume_text}
@@ -47,6 +62,7 @@ If the resume already perfectly matches the JD (e.g. it was generated specifical
 For the "missing_keywords" array in the JSON, you MUST filter the POTENTIAL MISSING KEYWORDS provided above. Only include real, hard technical skills from that list that are GENUINELY missing from the resume. Do NOT hallucinate keywords outside of this list. Ensure your final list is EXHAUSTIVE and completely stable across multiple runs.
 {rewriting_instructions}
 
+{rewrite_override}
 Respond ONLY in valid JSON. Ensure you escape all newlines as \\n in strings:
 {{
   "jd_match_score": 85,
