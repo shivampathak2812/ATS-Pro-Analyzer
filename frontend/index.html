@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATS Resume Analyzer Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+    <div class="background-elements">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+
+    <main class="app-container">
+        <header class="app-header">
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                <h1>ATS Pro <span>Analyzer</span></h1>
+            </div>
+            <p>Upload your resume and job description to get instant keyword matching and AI-powered suggestions.</p>
+        </header>
+
+        <section class="upload-section">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Your Resume</h2>
+                    <label class="upload-btn">
+                        <span>Upload File</span>
+                        <input type="file" id="resumeFile" accept=".pdf,.docx,.txt" hidden>
+                    </label>
+                </div>
+                <textarea id="resumeText" placeholder="Upload your resume or paste the text here..."></textarea>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>Job Description</h2>
+                    <label class="upload-btn">
+                        <span>Upload JD</span>
+                        <input type="file" id="jdFile" accept=".pdf,.docx,.txt" hidden>
+                    </label>
+                </div>
+                <textarea id="jdText" placeholder="Upload the job description or paste the text here..."></textarea>
+            </div>
+        </section>
+
+        <div class="action-section">
+            <div class="action-buttons">
+                <button id="analyzeBtn" class="primary-btn">1. Analyze JD Match &rarr;</button>
+                <button id="atsScoreBtn" class="secondary-btn">2. Calculate ATS Score (Resume Only) &oplus;</button>
+            </div>
+            <div class="action-section" style="margin-top: 1rem;">
+                <button id="generatePerfectBtn" class="primary-btn" style="background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); width: 100%;">
+                    3. Generate 100% Matched Resume
+                </button>
+            </div>
+            <div id="loader" class="loader hidden">
+                <div class="spinner"></div>
+                <span>Analyzing documents with AI...</span>
+            </div>
+        </div>
+
+        <section id="resultsSection" class="results-section hidden">
+            <div class="results-grid">
+                <div class="score-card" style="display: flex; flex-direction: column; align-items: center;">
+                    <div style="display: flex; gap: 2rem; width: 100%; justify-content: center;">
+                        <div id="jdMatchCircleContainer" style="text-align: center; flex: 1;">
+                            <h3>JD Match Score</h3>
+                            <div class="score-circle">
+                                <svg viewBox="0 0 36 36" class="circular-chart">
+                                    <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                    <path class="circle" id="scorePath" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                    <text x="18" y="20.35" class="percentage" id="scoreText">0%</text>
+                                </svg>
+                            </div>
+                        </div>
+                        <div id="atsScoreCircleContainer" style="text-align: center; flex: 1;">
+                            <h3>Resume ATS Score</h3>
+                            <div class="score-circle">
+                                <svg viewBox="0 0 36 36" class="circular-chart">
+                                    <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                    <path class="circle" id="atsScorePath" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                    <text x="18" y="20.35" class="percentage" id="atsScoreText">0%</text>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="verdict" id="verdictText" style="margin-top: 1rem;">Evaluating...</div>
+                    <div id="projectedScoreContainer" class="hidden" style="margin-top: 1rem; text-align: center; color: var(--success); font-weight: 600; font-size: 1.1rem; padding: 10px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; width: 100%;">
+                        Projected Score after Download: <span id="projectedScoreValue"></span>%
+                    </div>
+                </div>
+
+                <div class="details-card" id="jdMetricsCard">
+                    <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
+                        <div class="metric-box" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 0.9rem; color: #a1a1aa;">Keyword Match</div>
+                            <div id="keywordScore" style="font-size: 1.5rem; font-weight: bold; color: var(--accent-color);">0%</div>
+                        </div>
+                        <div class="metric-box" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 0.9rem; color: #a1a1aa;">Semantic Match</div>
+                            <div id="semanticScore" style="font-size: 1.5rem; font-weight: bold; color: var(--accent-color);">0%</div>
+                        </div>
+                        <div class="metric-box" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; text-align: center;">
+                            <div style="font-size: 0.9rem; color: #a1a1aa;">Experience</div>
+                            <div id="experienceScore" style="font-size: 1.5rem; font-weight: bold; color: var(--accent-color);">0%</div>
+                        </div>
+                    </div>
+                    
+                    <h3>Missing Keywords</h3>
+                    <div class="keywords-container" id="keywordsContainer">
+                        <!-- Keywords populated here -->
+                    </div>
+
+                </div>
+
+
+            </div>
+
+            <div class="suggestions-card">
+                <h3>AI Rewritten Professional Summary <span class="gap-badge hidden" style="font-size: 0.75em; color: var(--success); font-weight: normal; margin-left: 10px; background: rgba(16, 185, 129, 0.1); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2);">✨ JD Gaps Filled</span></h3>
+                <div class="glass-panel" id="summaryPanel"></div>
+                <button class="copy-btn" data-target="summaryPanel">Copy Summary</button>
+            </div>
+
+            <div class="suggestions-card">
+                <h3>ATS-Optimized Skills Section <span class="gap-badge hidden" style="font-size: 0.75em; color: var(--success); font-weight: normal; margin-left: 10px; background: rgba(16, 185, 129, 0.1); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2);">✨ Missing Keywords Injected</span></h3>
+                <div class="glass-panel" id="skillsPanel"></div>
+                <button class="copy-btn" data-target="skillsPanel">Copy Skills</button>
+            </div>
+
+            <div class="suggestions-card" id="experienceCard">
+                <h3>ATS-Optimized Experience Section <span class="gap-badge hidden" style="font-size: 0.75em; color: var(--success); font-weight: normal; margin-left: 10px; background: rgba(16, 185, 129, 0.1); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2);">✨ Tailored to JD</span></h3>
+                <div class="glass-panel" id="experiencePanel"></div>
+                <button class="copy-btn" data-target="experiencePanel">Copy Experience</button>
+            </div>
+
+            <div class="suggestions-card" id="fullResumeCard">
+                <h3>Your Completely Rewritten ATS Resume <span class="gap-badge hidden" style="font-size: 0.75em; color: var(--success); font-weight: normal; margin-left: 10px; background: rgba(16, 185, 129, 0.1); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2);">✨ 100% JD Matched</span></h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">This is your entire resume, rewritten from top to bottom with all missing JD keywords naturally injected.</p>
+                <div class="glass-panel" id="fullResumePanel" style="max-height: 400px; overflow-y: auto; white-space: pre-wrap;"></div>
+                <button class="copy-btn" data-target="fullResumePanel">Copy Entire Resume</button>
+            </div>
+
+            <div class="suggestions-card warning-card">
+                <h3>Action Plan to Improve Score</h3>
+                <div class="glass-panel">
+                    <ul id="improvementsList" class="improvements-list"></ul>
+                </div>
+            </div>
+
+            <div class="action-section" style="margin-top: 2rem; flex-direction: row; gap: 1rem; justify-content: center;">
+                <button id="downloadWordBtn" class="primary-btn hidden">
+                    <span>Download Word (DOCX)</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </button>
+                <button id="downloadPdfBtn" class="secondary-btn hidden">
+                    <span>Download PDF</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="script.js?v=7"></script>
+</body>
+</html>

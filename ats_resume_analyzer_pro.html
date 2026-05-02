@@ -1,0 +1,349 @@
+<h2 class="sr-only">ATS Resume Analyzer — paste your resume and job description to get keyword match score and suggestions</h2>
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+
+.app { padding: 1rem 0; }
+
+.header { margin-bottom: 1.5rem; }
+.header h1 { font-size: 20px; font-weight: 500; color: var(--color-text-primary); }
+.header p { font-size: 13px; color: var(--color-text-secondary); margin-top: 4px; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+@media (max-width: 520px) { .grid-2 { grid-template-columns: 1fr; } }
+
+.field-label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 6px; display: block; }
+
+textarea {
+  width: 100%; height: 160px; resize: none;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 10px 12px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  color: var(--color-text-primary);
+  background: var(--color-background-primary);
+  outline: none;
+}
+textarea:focus { border-color: var(--color-border-primary); box-shadow: 0 0 0 2px rgba(0,0,0,0.06); }
+textarea::placeholder { color: var(--color-text-tertiary); }
+
+.btn-row { display: flex; gap: 8px; margin-bottom: 1.5rem; }
+
+button {
+  padding: 8px 18px; font-size: 13px; font-weight: 500;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  background: transparent; color: var(--color-text-primary);
+  cursor: pointer; transition: background 0.15s, transform 0.1s;
+}
+button:hover { background: var(--color-background-secondary); }
+button:active { transform: scale(0.98); }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+button.primary { background: var(--color-text-primary); color: var(--color-background-primary); border-color: transparent; }
+button.primary:hover { opacity: 0.85; }
+
+.score-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+
+.metric {
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 12px 14px;
+}
+.metric-label { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 4px; }
+.metric-val { font-size: 22px; font-weight: 500; color: var(--color-text-primary); }
+.metric-val.good { color: #2d8a4e; }
+.metric-val.mid { color: #b07800; }
+.metric-val.low { color: #c0392b; }
+
+.progress-wrap { margin-bottom: 1.5rem; }
+.progress-label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 6px; display: flex; justify-content: space-between; }
+.progress-bar { height: 6px; background: var(--color-background-secondary); border-radius: 99px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 99px; background: var(--color-text-primary); transition: width 0.6s ease; }
+
+.section-label { font-size: 11px; font-weight: 500; color: var(--color-text-secondary); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
+
+.tags-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 1.5rem; }
+
+.tag {
+  font-size: 12px; padding: 4px 10px;
+  border-radius: 99px;
+  border: 0.5px solid;
+  font-weight: 500;
+}
+.tag.have { background: #eaf3de; color: #3b6d11; border-color: #97c459; }
+.tag.missing { background: #fcebeb; color: #a32d2d; border-color: #f09595; }
+.tag.maybe { background: #faeeda; color: #854f0b; border-color: #ef9f27; }
+
+.summary-box {
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 14px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--color-text-primary);
+  margin-bottom: 10px;
+  white-space: pre-wrap;
+}
+
+.skills-box {
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 14px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--color-text-primary);
+  margin-bottom: 10px;
+  white-space: pre-wrap;
+}
+
+.legend { display: flex; gap: 14px; margin-bottom: 12px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--color-text-secondary); }
+.dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot.have { background: #639922; }
+.dot.missing { background: #e24b4a; }
+.dot.maybe { background: #ba7517; }
+
+.results { display: none; }
+.loader { display: none; font-size: 13px; color: var(--color-text-secondary); padding: 12px 0; }
+
+.divider { border: none; border-top: 0.5px solid var(--color-border-tertiary); margin: 1.5rem 0; }
+
+.tip {
+  font-size: 12px; color: var(--color-text-secondary);
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 10px 14px;
+  margin-bottom: 1rem;
+}
+
+.error-msg { font-size: 13px; color: #c0392b; display: none; padding: 8px 0; }
+</style>
+
+<div class="app">
+  <div class="header">
+    <h1>ATS Resume Analyzer</h1>
+    <p>Paste your resume + job description → get match score, keywords & rewritten sections</p>
+  </div>
+
+  <div class="grid-2">
+    <div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span class="field-label">Your resume</span>
+        <input type="file" id="resumeFile" accept=".pdf,.docx,.txt" style="font-size:11px; margin-bottom:6px;" onchange="uploadFile('resumeFile', 'resume', 'upload-resume')" />
+      </div>
+      <textarea id="resume" placeholder="Paste your full resume text here..."></textarea>
+    </div>
+    <div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span class="field-label">Job description (JD)</span>
+        <input type="file" id="jdFile" accept=".pdf,.docx,.txt" style="font-size:11px; margin-bottom:6px;" onchange="uploadFile('jdFile', 'jd', 'upload-jd')" />
+      </div>
+      <textarea id="jd" placeholder="Paste the full job description here..."></textarea>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="primary" id="analyzeBtn" onclick="analyze()">Analyze</button>
+    <button onclick="loadSample()">Load my resume</button>
+  </div>
+
+  <div class="loader" id="loader">Analyzing your resume against the JD...</div>
+  <div class="error-msg" id="errMsg">Something went wrong. Please try again.</div>
+
+  <div class="results" id="results">
+
+    <div class="score-row">
+      <div class="metric">
+        <div class="metric-label">Match score</div>
+        <div class="metric-val" id="score">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Keywords found</div>
+        <div class="metric-val" id="kFound">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Missing</div>
+        <div class="metric-val" id="kMissing">—</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Verdict</div>
+        <div class="metric-val" id="verdict" style="font-size:14px;">—</div>
+      </div>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-label"><span>Keyword match</span><span id="pct">0%</span></div>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="section-label">Keywords</div>
+    <div class="legend">
+      <div class="legend-item"><div class="dot have"></div> You have it</div>
+      <div class="legend-item"><div class="dot missing"></div> Missing — add if true</div>
+      <div class="legend-item"><div class="dot maybe"></div> Partial — strengthen</div>
+    </div>
+    <div class="tags-wrap" id="tags"></div>
+
+    <hr class="divider">
+
+    <div class="section-label">Rewritten professional summary</div>
+    <div class="summary-box" id="summaryBox"></div>
+    <div class="btn-row">
+      <button onclick="copyText('summaryBox', this)">Copy summary</button>
+    </div>
+
+    <hr class="divider">
+
+    <div class="section-label">Rewritten skills section</div>
+    <div class="skills-box" id="skillsBox"></div>
+    <div class="btn-row">
+      <button onclick="copyText('skillsBox', this)">Copy skills</button>
+    </div>
+
+    <hr class="divider">
+
+    <div class="tip" id="tipBox"></div>
+
+  </div>
+</div>
+
+<script>
+const SAMPLE_RESUME = `Shivam Pathak | pathakshivam3738@gmail.com | +91-8755105612
+
+Professional Summary:
+Computer Science graduate (June 2025) specializing in Python development, machine learning, data science, and data analysis. Proficient in FastAPI, Scikit-learn, and JavaScript. TCS NQT 2025 qualified.
+
+Technical Skills:
+Programming: Python, C++, JavaScript, SQL, HTML5, CSS3
+Frameworks: FastAPI, Pandas, NumPy, Scikit-learn, Matplotlib, Seaborn
+Databases: MySQL, Oracle SQL
+Tools: Git, GitHub, VS Code, PyCharm, Jupyter Notebook, MS Excel
+ML: Supervised Learning, Linear Regression, Logistic Regression, Model Evaluation, Data Preprocessing, LLM Basics, RAG
+
+Experience:
+AI Engineer Intern - Northcorp Software (Jan 2025 - Present)
+- Developing REST APIs for Talent Assessment Platform using FastAPI and PostgreSQL
+- Building AI-powered features using LLMs, RAG, and agent-based architectures
+- Managing databases using SQLAlchemy ORM, Alembic migrations, MinIO for file storage
+- Contributing across requirement analysis, system design, development, testing, deployment using GitLab and Docker
+
+Projects:
+House Price Prediction - Python, Scikit-learn, Machine Learning
+Courier Partner Web App - Python, FastAPI, HTML, CSS
+
+Certifications:
+- TCS NQT 2025 Qualified (Top 10%)
+- Google Cloud Skills Boost - Generative AI Fundamentals
+- Python Development Internship - Cognifyz Technologies`;
+
+function loadSample() {
+  document.getElementById('resume').value = SAMPLE_RESUME;
+}
+
+async function uploadFile(inputId, targetId, endpointName) {
+  const fileInput = document.getElementById(inputId);
+  const file = fileInput.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const targetArea = document.getElementById(targetId);
+  const prevValue = targetArea.value;
+  targetArea.value = "Extracting text from file...";
+
+  try {
+    const res = await fetch(`http://127.0.0.1:8000/api/${endpointName}`, {
+      method: "POST",
+      body: formData
+    });
+    if (!res.ok) throw new Error("Failed to extract text");
+    const data = await res.json();
+    targetArea.value = data.text;
+  } catch (e) {
+    alert("Error processing file: " + e.message);
+    targetArea.value = prevValue;
+  }
+  fileInput.value = ""; // clear input
+}
+
+async function analyze() {
+  const resume = document.getElementById('resume').value.trim();
+  const jd = document.getElementById('jd').value.trim();
+  if (!resume || !jd) { alert('Please paste both resume and JD.'); return; }
+
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('loader').style.display = 'block';
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('errMsg').style.display = 'none';
+
+  try {
+    const res = await fetch("http://127.0.0.1:8000/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        resume: resume,
+        jd: jd
+      })
+    });
+
+    if (!res.ok) {
+      console.error(await res.text());
+      throw new Error("Backend error");
+    }
+
+    const data = await res.json();
+    const raw = data.content[0].text.replace(/```json|```/g, '').trim();
+    const r = JSON.parse(raw);
+
+    const score = Math.round(r.match_score);
+    const scoreEl = document.getElementById('score');
+    scoreEl.textContent = score + '%';
+    scoreEl.className = 'metric-val ' + (score >= 70 ? 'good' : score >= 45 ? 'mid' : 'low');
+
+    const have = r.keywords.filter(k => k.status === 'have').length;
+    const missing = r.keywords.filter(k => k.status === 'missing').length;
+
+    document.getElementById('kFound').textContent = have;
+    document.getElementById('kMissing').textContent = missing;
+    document.getElementById('verdict').textContent = r.verdict;
+
+    document.getElementById('pct').textContent = score + '%';
+    document.getElementById('progressFill').style.width = score + '%';
+
+    const tagsEl = document.getElementById('tags');
+    tagsEl.innerHTML = '';
+    r.keywords.forEach(k => {
+      const t = document.createElement('div');
+      t.className = 'tag ' + k.status;
+      t.textContent = k.word;
+      tagsEl.appendChild(t);
+    });
+
+    document.getElementById('summaryBox').textContent = r.summary;
+    document.getElementById('skillsBox').textContent = r.skills_section;
+    document.getElementById('tipBox').textContent = '💡 ' + r.tip;
+
+    document.getElementById('results').style.display = 'block';
+  } catch(e) {
+    document.getElementById('errMsg').style.display = 'block';
+  }
+
+  document.getElementById('analyzeBtn').disabled = false;
+  document.getElementById('loader').style.display = 'none';
+}
+
+function copyText(id, btn) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text);
+  const orig = btn.textContent;
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = orig, 2000);
+}
+</script>
