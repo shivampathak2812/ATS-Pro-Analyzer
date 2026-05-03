@@ -18,19 +18,19 @@ def send_otp_email(to_email: str, otp_code: str):
         msg = MIMEMultipart()
         msg['From'] = settings.SMTP_EMAIL
         msg['To'] = to_email
-        msg['Subject'] = "Your ATS Pro 2.0 Verification Code"
+        msg['Subject'] = "Your ATS Pro Analyser Verification Code"
 
         body = f"""
         Hello,
 
-        Thank you for registering with ATS Pro 2.0.
+        Thank you for registering with ATS Pro Analyser.
         Your 6-digit verification code is: {otp_code}
 
         This code will expire in 10 minutes.
         If you did not request this, please ignore this email.
 
         Best regards,
-        The ATS Pro Team
+        The ATS Pro Analyser Team
         """
         msg.attach(MIMEText(body, 'plain'))
 
@@ -44,4 +44,41 @@ def send_otp_email(to_email: str, otp_code: str):
         return True
     except Exception as e:
         print(f"Failed to send email: {e}")
+        return False
+
+def send_reset_email(to_email: str, reset_token: str):
+    reset_link = f"{settings.APP_URL}/reset-password.html?token={reset_token}"
+
+    if settings.SMTP_EMAIL == "your_email@gmail.com":
+        print(f"\n{'='*50}\n[DEV MODE] Reset link for {to_email}:\n{reset_link}\n{'='*50}\n")
+        return True
+
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = settings.SMTP_EMAIL
+        msg['To'] = to_email
+        msg['Subject'] = "ATS Pro — Password Reset Link"
+
+        body = f"""
+        Hello,
+
+        Click the link below to reset your password:
+        {reset_link}
+
+        This link will expire in 15 minutes.
+        If you did not request this, please ignore this email.
+
+        Best regards,
+        The ATS Pro Analyser Team
+        """
+        msg.attach(MIMEText(body, 'plain'))
+
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(settings.SMTP_EMAIL, settings.SMTP_PASSWORD)
+        server.sendmail(settings.SMTP_EMAIL, to_email, msg.as_string())
+        server.quit()
+        return True
+    except Exception as e:
+        print(f"Failed to send reset email: {e}")
         return False

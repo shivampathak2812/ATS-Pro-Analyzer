@@ -14,7 +14,8 @@ from app.services.resume_pdf_generator import generate_resume_pdf
 from app.database import get_db
 from app.models import User, Document
 from app.services.auth_service import get_password_hash, verify_password, create_access_token, get_optional_current_user, ACCESS_TOKEN_EXPIRE_MINUTES
-from app.services.email_service import generate_otp, send_otp_email
+from app.services.email_service import generate_otp, send_otp_email, send_reset_email
+import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -42,6 +43,13 @@ class SaveDocumentRequest(BaseModel):
 class DownloadResumeRequest(BaseModel):
     resume_text: str
     template: str = "modern"
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
 
 @router.post("/auth/register")
 def register(user: UserCreate, db: Session = Depends(get_db)):
@@ -175,3 +183,34 @@ async def download_resume(request: DownloadResumeRequest, current_user: Optional
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate PDF: {str(e)}")
+
+@router.post("/auth/forgot-password")
+def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
+    # Always return success — security ke liye email existence expose mat karo
+    if not user:
+        return {"message": "If this email exists, a reset link has been sent."}
+
+    reset_token = secrets.token_urlsafe(32)
+    user.otp_code = reset_token  # reuse otp_code column for token
+    user.otp_expiry = datetime.utcnow() + timedelta(minutes=15)
+    db.commit()
+
+    send_reset_email(user.email, reset_token)
+    return {"message": "If this email exists, a reset link has been sent."}
+
+@router.post("/auth/reset-password")
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.otp_code == payload.token).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+    if user.otp_expiry and datetime.utcnow() > user.otp_expiry:
+        raise HTTPException(status_code=400, detail="Reset link has expired. Please request a new one.")
+
+    user.hashed_password = get_password_hash(payload.new_password)
+    user.otp_code = None
+    user.otp_expiry = None
+    db.commit()
+
+    return {"message": "Password reset successful. Please login."}

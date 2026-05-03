@@ -23,9 +23,27 @@
 
             <form id="authForm" onsubmit="handleAuthSubmit(event)">
                 <input type="email" id="authEmail" class="auth-input" placeholder="Email Address" required>
-                <input type="password" id="authPassword" class="auth-input" placeholder="Password" required>
+                <div style="position: relative;">
+                    <input type="password" id="authPassword" class="auth-input" placeholder="Password" required
+                        style="padding-right: 45px !important; width: 100%; box-sizing: border-box;">
+                    <button type="button" onclick="togglePasswordVisibility()"
+                        style="position: absolute; right: 12px; top: 38%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; color: #a1a1aa; padding: 0; display: flex; align-items: center; z-index: 10;">
+                        <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </div>
                 <input type="text" id="authOtp" class="auth-input hidden" placeholder="Enter 6-digit OTP"
                     pattern="\d{6}">
+                <div id="forgotPasswordLink" style="text-align: right; margin-top: -8px; margin-bottom: 8px;">
+                    <a href="#" onclick="showForgotPassword()"
+                        style="font-size: 0.8rem; color: var(--text-muted); text-decoration: none;">
+                        Forgot Password?
+                    </a>
+                </div>
                 <button type="submit" id="authSubmitBtn" class="primary-btn"
                     style="width: 100%; margin-top: 10px; justify-content: center;">Sign In</button>
             </form>

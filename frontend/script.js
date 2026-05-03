@@ -39,7 +39,7 @@ window.handleAuthSubmit = async (e) => {
     const password = document.getElementById('authPassword').value;
     const otp = document.getElementById('authOtp').value;
     const msgEl = document.getElementById('authMessage');
-    
+
     msgEl.className = 'auth-message';
     msgEl.innerText = "Loading...";
 
@@ -48,12 +48,12 @@ window.handleAuthSubmit = async (e) => {
             // Step 1: Register
             const res = await fetch(`${API_BASE}/auth/register`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({email, password})
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || "Registration failed");
-            
+
             msgEl.innerText = "Check your email for the OTP!";
             document.getElementById('authOtp').classList.remove('hidden');
             document.getElementById('authOtp').required = true;
@@ -62,12 +62,12 @@ window.handleAuthSubmit = async (e) => {
             // Step 2: Verify OTP
             const res = await fetch(`${API_BASE}/auth/verify-otp`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({email, otp})
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, otp })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || "OTP Verification failed");
-            
+
             localStorage.setItem('token', data.access_token);
             window.location.reload();
         } else {
@@ -75,15 +75,15 @@ window.handleAuthSubmit = async (e) => {
             const formData = new URLSearchParams();
             formData.append('username', email);
             formData.append('password', password);
-            
+
             const res = await fetch(`${API_BASE}/auth/login`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: formData
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.detail || "Login failed");
-            
+
             localStorage.setItem('token', data.access_token);
             window.location.reload();
         }
@@ -101,14 +101,14 @@ window.logout = () => {
 async function apiFetch(url, options = {}) {
     const token = localStorage.getItem('token');
     if (!options.headers) options.headers = {};
-    
+
     // Don't overwrite FormData headers
     if (!(options.body instanceof FormData)) {
         if (!options.headers['Content-Type']) {
             options.headers['Content-Type'] = 'application/json';
         }
     }
-    
+
     if (token) {
         options.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -141,22 +141,22 @@ document.getElementById('generatePerfectBtn').addEventListener('click', () => an
 
 document.getElementById('reanalyzeBtn').addEventListener('click', async () => {
     if (!currentAnalysisData || !currentAnalysisData.full_rewritten_resume) return;
-    
+
     // We keep the button visible based on user request.
     const rewrittenText = currentAnalysisData.full_rewritten_resume;
     let jdText = document.getElementById('jdText').value;
     jdText = cleanExtractedText(jdText);
-    
+
     const loader = document.getElementById('loader');
     loader.classList.remove('hidden');
-    
+
     try {
         const resume_id = await getDocumentId(rewrittenText);
         const jd_id = jdText ? await getDocumentId(jdText) : null;
-        
+
         const payload = { resume_id: resume_id };
         if (jd_id) payload.jd_id = jd_id;
-        
+
         const response = await apiFetch(`${API_BASE}/analyze`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -165,7 +165,7 @@ document.getElementById('reanalyzeBtn').addEventListener('click', async () => {
 
         const data = await response.json();
         displayResults(data, !!jd_id, false, true);
-        
+
         const msgContainer = document.getElementById('reanalyzeMessageContainer');
         if (msgContainer) {
             msgContainer.innerHTML = `🔥 JD Match Score is now 100%! 🔥<br>Previously there were ${initialMissingKeywordsCount} missing keywords, and now there are 0! Your ATS match is absolutely perfect!`;
@@ -206,7 +206,7 @@ async function handleFileUpload(event, targetTextareaId, endpoint) {
 
     const textarea = document.getElementById(targetTextareaId);
     const filenameDisplay = document.getElementById(targetTextareaId.replace('Text', 'FileName'));
-    
+
     if (filenameDisplay) {
         filenameDisplay.textContent = "Extracting text... ⏳";
         filenameDisplay.style.color = "#a1a1aa";
@@ -225,7 +225,7 @@ async function handleFileUpload(event, targetTextareaId, endpoint) {
 
         const data = await response.json();
         textarea.value = cleanExtractedText(data.text);
-        
+
         if (data.resume_id) textarea.dataset.id = data.resume_id;
         if (data.jd_id) textarea.dataset.id = data.jd_id;
 
@@ -241,7 +241,7 @@ async function handleFileUpload(event, targetTextareaId, endpoint) {
             filenameDisplay.style.color = "var(--danger)";
         }
     }
-    
+
     event.target.value = "";
 }
 
@@ -351,12 +351,12 @@ function displayResults(data, hasJd = true, forcePerfectScore = false, isReanaly
             document.getElementById('atsScoreText').textContent = `${atsScore}%`;
         }
     }
-    
+
     // Hide or show JD-specific metrics
     const jdMetricsCard = document.getElementById('jdMetricsCard');
     const jdMatchCircleContainer = document.getElementById('jdMatchCircleContainer');
     const gapBadges = document.querySelectorAll('.gap-badge');
-    
+
     if (!hasJd) {
         if (jdMetricsCard) jdMetricsCard.classList.add('hidden');
         if (jdMatchCircleContainer) jdMatchCircleContainer.classList.add('hidden');
@@ -369,7 +369,7 @@ function displayResults(data, hasJd = true, forcePerfectScore = false, isReanaly
         const atsContainer = document.getElementById('atsScoreCircleContainer');
         if (atsContainer) atsContainer.classList.add('hidden');
         gapBadges.forEach(badge => badge.classList.remove('hidden'));
-        
+
         // Set the new metrics
         if (document.getElementById('keywordScore')) {
             document.getElementById('keywordScore').textContent = forcePerfectScore ? '100%' : `${data.keyword_match}%`;
@@ -377,7 +377,7 @@ function displayResults(data, hasJd = true, forcePerfectScore = false, isReanaly
             document.getElementById('experienceScore').textContent = forcePerfectScore ? '100%' : `${data.experience_score}%`;
         }
     }
-    
+
     // Projected Score
     const projectedScoreContainer = document.getElementById('projectedScoreContainer');
     const projectedScoreValue = document.getElementById('projectedScoreValue');
@@ -399,13 +399,13 @@ function displayResults(data, hasJd = true, forcePerfectScore = false, isReanaly
     if (container) {
         container.innerHTML = '';
         const keywordsToShow = forcePerfectScore ? [] : (data.missing_keywords || []);
-        
+
         if (!isReanalyze && data.missing_keywords && data.missing_keywords.length >= 0) {
             // Always save the original missing keywords count from the backend analysis
             // unless it's a re-analyze call where the backend forces it to 0.
             initialMissingKeywordsCount = data.missing_keywords.length;
         }
-        
+
         if (keywordsToShow.length === 0) {
             container.innerHTML = '<div style="color: var(--success); grid-column: 1/-1; text-align: center;">All JD Keywords are present in the rewritten resume!</div>';
         } else {
@@ -415,7 +415,7 @@ function displayResults(data, hasJd = true, forcePerfectScore = false, isReanaly
 
     const suggestionsCards = document.querySelectorAll('.suggestions-card:not(#fullResumeCard)');
     const toggleBtn = document.getElementById('toggleGranularBtn');
-    
+
     if (!forcePerfectScore && !isReanalyze) {
         // Hide all generation panels for basic analysis
         suggestionsCards.forEach(card => card.classList.add('hidden'));
@@ -429,7 +429,7 @@ function displayResults(data, hasJd = true, forcePerfectScore = false, isReanaly
             toggleBtn.textContent = "+ View Individual Rewritten Sections (Summary, Skills, etc.)";
         }
         document.getElementById('granularSections').classList.add('hidden');
-        
+
         const improvementsList = document.getElementById('improvementsList');
         if (improvementsList && data.improvement_suggestions) {
             improvementsList.innerHTML = '';
@@ -442,7 +442,7 @@ function displayResults(data, hasJd = true, forcePerfectScore = false, isReanaly
 
         document.getElementById('summaryPanel').textContent = data.summary || "";
         document.getElementById('skillsPanel').textContent = data.skills_section || "";
-        
+
         if (data.experience_section) {
             document.getElementById('experienceCard').classList.remove('hidden');
             document.getElementById('experiencePanel').textContent = data.experience_section;
@@ -463,7 +463,7 @@ function displayResults(data, hasJd = true, forcePerfectScore = false, isReanaly
             if (templateSelector) templateSelector.classList.add('hidden');
         }
     }
-    
+
 
     currentAnalysisData = data;
     document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
@@ -471,14 +471,14 @@ function displayResults(data, hasJd = true, forcePerfectScore = false, isReanaly
 
 let selectedTemplate = 'modern';
 
-window.selectTemplate = function(name) {
+window.selectTemplate = function (name) {
     selectedTemplate = name;
     document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
     document.getElementById('tmpl-' + name).classList.add('selected');
     downloadResumePdf(name);
 }
 
-window.downloadResumePdf = async function(template) {
+window.downloadResumePdf = async function (template) {
     const resumeText = document.getElementById('fullResumePanel').innerText;
     if (!resumeText.trim()) {
         alert('Please generate resume first!');
@@ -502,3 +502,47 @@ window.downloadResumePdf = async function(template) {
         alert('Error downloading PDF. Please try again.');
     }
 }
+
+function togglePasswordVisibility() {
+    const passwordInput = document.getElementById('authPassword');
+    const eyeIcon = document.getElementById('eyeIcon');
+
+    if (passwordInput.type === 'password') {
+        // Show password
+        passwordInput.type = 'text';
+        eyeIcon.innerHTML = `
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+            <line x1="1" y1="1" x2="23" y2="23"/>
+        `;
+    } else {
+        // Hide password
+        passwordInput.type = 'password';
+        eyeIcon.innerHTML = `
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+        `;
+    }
+}
+
+window.showForgotPassword = async () => {
+    const email = prompt("Enter your registered email:");
+    if (!email) return;
+
+    const msgEl = document.getElementById('authMessage');
+    msgEl.className = 'auth-message';
+    msgEl.innerText = "Sending reset link...";
+
+    try {
+        const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        msgEl.innerText = data.message;
+    } catch (err) {
+        msgEl.className = 'auth-message error';
+        msgEl.innerText = "Something went wrong. Try again.";
+    }
+};
