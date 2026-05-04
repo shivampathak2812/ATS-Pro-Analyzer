@@ -331,7 +331,29 @@ function displayResults(data, hasJd = true, forcePerfectScore = false, isReanaly
     // JD Match Score
     const matchScore = forcePerfectScore ? 100 : Math.round(data.ats_score);
     const path = document.getElementById('scorePath');
-    path.setAttribute('stroke-dasharray', `${matchScore}, 100`);
+    const scoreText = document.getElementById('scoreText');
+
+    // Animation — 0 se matchScore tak
+    let current = 0;
+    const duration = 1500; // 1.5 seconds
+    const increment = matchScore / (duration / 16);
+
+    path.setAttribute('stroke-dasharray', `0, 100`);
+    path.className.baseVal = "circle";
+
+    const timer = setInterval(() => {
+        current += increment;
+        if (current >= matchScore) {
+            current = matchScore;
+            clearInterval(timer);
+        }
+        path.setAttribute('stroke-dasharray', `${current}, 100`);
+        scoreText.textContent = `${Math.round(current)}%`;
+    }, 16);
+
+    if (matchScore >= 75) path.classList.add('success');
+    else if (matchScore >= 50) path.classList.add('warning');
+    else path.classList.add('danger');
     path.className.baseVal = "circle";
     if (matchScore >= 75) path.classList.add('success');
     else if (matchScore >= 50) path.classList.add('warning');
@@ -398,8 +420,7 @@ function displayResults(data, hasJd = true, forcePerfectScore = false, isReanaly
     const container = document.getElementById('keywordsContainer');
     if (container) {
         container.innerHTML = '';
-        const keywordsToShow = forcePerfectScore ? [] : (data.missing_keywords || []);
-
+        const keywordsToShow = forcePerfectScore ? [] : (data.top_missing_keywords || data.missing_keywords || []);
         if (!isReanalyze && data.missing_keywords && data.missing_keywords.length >= 0) {
             // Always save the original missing keywords count from the backend analysis
             // unless it's a re-analyze call where the backend forces it to 0.
@@ -409,7 +430,27 @@ function displayResults(data, hasJd = true, forcePerfectScore = false, isReanaly
         if (keywordsToShow.length === 0) {
             container.innerHTML = '<div style="color: var(--success); grid-column: 1/-1; text-align: center;">All JD Keywords are present in the rewritten resume!</div>';
         } else {
-            container.innerHTML = `<div style="color: var(--danger); grid-column: 1/-1; text-align: center; font-size: 1.2rem; font-weight: bold;">${keywordsToShow.length} Keywords Missing from your Resume</div>`;
+            const total = keywordsToShow.length;
+            const visible = keywordsToShow.slice(0, 5);
+            const hidden = keywordsToShow.slice(5);
+
+            let html = `<div style="color: var(--danger); grid-column: 1/-1; text-align: center; font-size: 1.2rem; font-weight: bold; margin-bottom: 12px;">
+                ${total} Missing Keywords
+            </div>`;
+
+            html += `<div style="grid-column: 1/-1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">`;
+
+            visible.forEach(kw => {
+                html += `<span style="background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); padding: 4px 12px; border-radius: 20px; font-size: 0.82rem; font-weight: 500;">${kw}</span>`;
+            });
+
+            if (hidden.length > 0) {
+                html += `<span style="background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 20px; font-size: 0.82rem;">+${hidden.length} more, etc.</span>`;
+            }
+
+            html += `</div>`;
+
+            container.innerHTML = html;
         }
     }
 

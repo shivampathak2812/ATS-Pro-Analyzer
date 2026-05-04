@@ -39,37 +39,36 @@ def calculate_hybrid_score(resume_text: str, jd_text: str, is_rewritten: bool = 
     init_models()
     
     resume_kw = extract_keywords(resume_text)
-    jd_kw = extract_keywords(jd_text)
-    
-    if not jd_kw:
-        keyword_match = 85.0
-        missing_keywords = []
-    else:
+
+    # TF-IDF se important JD keywords nikalo
+    try:
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        vectorizer = TfidfVectorizer(stop_words='english', max_features=30)
+        vectorizer.fit([jd_text])
+        jd_important_words = set(vectorizer.get_feature_names_out())
+        matched = jd_important_words.intersection(resume_kw)
+        keyword_match = (len(matched) / len(jd_important_words)) * 100.0
+        missing_keywords = list(jd_important_words - resume_kw)[:30]
+    except:
+        jd_kw = extract_keywords(jd_text)
         matched = jd_kw.intersection(resume_kw)
-        keyword_match = (len(matched) / len(jd_kw)) * 100.0
-        if is_rewritten:
-            missing_keywords = []
-        else:
-            missing_keywords = list(jd_kw - resume_kw)[:10]
-        
+        keyword_match = (len(matched) / len(jd_kw)) * 100.0 if jd_kw else 85.0
+        missing_keywords = list(jd_kw - resume_kw)[:30]
+
     semantic_score = 80.0
     try:
         from sklearn.feature_extraction.text import TfidfVectorizer
         from sklearn.metrics.pairwise import cosine_similarity
-        
         vectorizer = TfidfVectorizer(stop_words='english')
         tfidf_matrix = vectorizer.fit_transform([jd_text, resume_text])
         sim = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
-        semantic_score = max(0.0, float(sim) * 100.0)
-        # Boost TF-IDF score slightly as it tends to be lower than dense embeddings
-        semantic_score = min(100.0, semantic_score * 1.5)
+        semantic_score = min(100.0, float(sim) * 100.0 * 1.5)
     except ImportError:
         logger.error("scikit-learn not installed, skipping TF-IDF similarity.")
-    
+
     exp_score = calculate_experience_relevance(resume_text, jd_text)
-    
     final_score = (0.5 * keyword_match) + (0.3 * semantic_score) + (0.2 * exp_score)
-    
+
     return {
         "ats_score": round(final_score),
         "keyword_match": round(keyword_match),

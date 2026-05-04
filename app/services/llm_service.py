@@ -5,9 +5,14 @@ from app.core.config import settings
 from app.services.scoring_engine import calculate_hybrid_score
 
 async def analyze_resume_with_llm(resume_text: str, jd_text: str, is_rewritten: bool = False) -> dict:
-    target_jd = jd_text if jd_text else "Python Developer Machine Learning Engineer Data Analyst. Required skills: Python, SQL, Data Analysis, APIs, Git, Machine Learning, Pandas, Scikit-learn, FastAPI. Experience building scalable models, databases, and APIs."
     
+    # Scoring FULL text pe karo pehle
+    target_jd = jd_text if jd_text else "Python Developer..."
     scoring_result = calculate_hybrid_score(resume_text, target_jd, is_rewritten=is_rewritten)
+    
+    # Ab truncate karo LLM ke liye
+    resume_text_llm = resume_text[:2000]
+    jd_text_llm = target_jd[:1500]
     missing_keywords_str = ", ".join(scoring_result["missing_keywords"])
     ats_score = scoring_result.get("ats_score", 0)
     if ats_score >= 85:
@@ -47,10 +52,10 @@ Do NOT list any missing keywords whatsoever.
 
     prompt = f"""You are an AI-powered Resume Optimization System. 
 Resume:
-{resume_text}
+{resume_text_llm}
 
 Target Role / JD:
-{target_jd}
+{jd_text_llm}
 
 POTENTIAL MISSING KEYWORDS (Found by Algorithm):
 {missing_keywords_str}
@@ -59,7 +64,7 @@ Use this context to evaluate the resume against the JD, and generate a fully rew
 You must act as an expert ATS system. Calculate realistic match scores based on how well the Resume fits the JD.
 If the resume already perfectly matches the JD (e.g. it was generated specifically for it), give it 100% scores and an empty missing_keywords list.
 
-For the "missing_keywords" array in the JSON, you MUST filter the POTENTIAL MISSING KEYWORDS provided above. Only include real, hard technical skills from that list that are GENUINELY missing from the resume. Do NOT hallucinate keywords outside of this list. Ensure your final list is EXHAUSTIVE and completely stable across multiple runs.
+For the "missing_keywords" array in the JSON, carefully filter the POTENTIAL MISSING KEYWORDS list above. Only include IMPORTANT ROLE-SPECIFIC SKILLS, TOOLS, CERTIFICATIONS, TECHNOLOGIES, or DOMAIN-SPECIFIC KEYWORDS that are genuinely missing from the resume. STRICTLY EXCLUDE generic English words like "description", "internal", "enduring", "good", "strong", "ability", "experience", "working", "preferred" etc. Only keep words that a recruiter would actually search for when hiring for this role. Do NOT hallucinate keywords outside of this list.Also, from the missing_keywords list, identify the TOP 5 MOST IMPORTANT keywords that a recruiter would prioritize for this specific role and domain. Return these as "top_missing_keywords" array (max 5). Must be role-critical skills, certifications, tools — not generic words.
 {rewriting_instructions}
 
 {rewrite_override}
@@ -70,6 +75,7 @@ Respond ONLY in valid JSON. Ensure you escape all newlines as \\n in strings:
   "semantic_match": 90,
   "experience_match": 100,
   "missing_keywords": ["ExampleSkill1", "ExampleSkill2"],
+  "top_missing_keywords": ["MostImportantSkill1", "MostImportantSkill2"],
   "resume_ats_score": 85,
   "improvement_suggestions": [
     "Add SQL project experience",
@@ -96,7 +102,7 @@ Respond ONLY in valid JSON. Ensure you escape all newlines as \\n in strings:
                         "model": "llama-3.1-8b-instant",
                         "messages": [{"role": "user", "content": prompt}],
                         "temperature": 0.1,
-                        "max_tokens": 2300,
+                        "max_tokens": 4000,
                         "response_format": {"type": "json_object"}
                     },
                     timeout=45.0
@@ -122,12 +128,13 @@ Respond ONLY in valid JSON. Ensure you escape all newlines as \\n in strings:
                 llm_result = json.loads(content)
                 
                 return {
-                    "ats_score": llm_result.get("jd_match_score", 80),
-                    "keyword_match": llm_result.get("keyword_match", 80),
-                    "semantic_similarity": llm_result.get("semantic_match", 80),
-                    "experience_score": llm_result.get("experience_match", 80),
-                    "missing_keywords": llm_result.get("missing_keywords", []),
-                    "resume_ats_score": llm_result.get("resume_ats_score", 80),
+                    "ats_score": scoring_result["ats_score"],           # algorithm
+                    "keyword_match": scoring_result["keyword_match"],   # algorithm
+                    "semantic_similarity": scoring_result["semantic_similarity"],  # algorithm
+                    "experience_score": scoring_result["experience_score"],        # algorithm
+                    "missing_keywords": llm_result.get("missing_keywords", []),    # LLM filter kare
+                    "top_missing_keywords": llm_result.get("top_missing_keywords", []),  # LLM top 5
+                    "resume_ats_score": scoring_result["ats_score"],    # algorithm
                     "improvement_suggestions": llm_result.get("improvement_suggestions", []),
                     "summary": llm_result.get("summary", ""),
                     "skills_section": llm_result.get("skills_section", ""),
